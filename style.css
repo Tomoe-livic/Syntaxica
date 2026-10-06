@@ -392,7 +392,8 @@
   .nessuno { text-align: center; padding: 1.6rem 0.5rem; }
   .nessuno .nessuno-titolo { color: var(--text); font-size: 1rem; font-weight: 600; margin: 0 0 0.5rem; word-break: break-word; }
   .nessuno p { color: var(--muted); font-size: 0.88rem; line-height: 1.5; margin: 0 0 1rem; }
-
+  .nessuno-segnala { margin: 1.2rem 0 0 !important; }
+  .nessuno-segnala small { color: var(--muted); }
 /* --- Solo versione PWA: la barra di stato è trasparente, quindi lo sfondo deve arrivare fino al bordo
    (niente fascia bianca) e l'intestazione deve coprire anche la zona del notch. --- */
 html { background: var(--bg); }

@@ -122,13 +122,22 @@ function cardHtml(voce, { principale = false, compatta = false } = {}) {
   `;
 }
 
+const REPO_ISSUE = "https://github.com/Tomoe-livic/Syntaxica/issues/new";
+function urlSegnalazione(q) {
+  const t = q.slice(0, 80);
+  const titolo = "Voce mancante: " + t;
+  const testo = "Ho cercato «" + t + "» in Syntaxica e non l'ho trovata.\n\nCosa stavo cercando di capire? (facoltativo)\n";
+  return REPO_ISSUE + "?title=" + encodeURIComponent(titolo) + "&body=" + encodeURIComponent(testo);
+}
 function nessunRisultato() {
   const q = document.getElementById("search").value.trim();
   if (!q) return `<p class="empty">Nessun risultato in questa categoria.</p>`;
   return `<div class="nessuno"><p class="nessuno-titolo">Nessun risultato per «${escapeHtml(q)}»</p>
     <p>Questa voce non c'è (ancora): Syntaxica è una guida scelta, non un'enciclopedia. Prova con un altro termine, oppure cercala su MDN.</p>
-    <a class="brief-azione mdn" href="https://developer.mozilla.org/en-US/search?q=${encodeURIComponent(q)}" target="_blank" rel="noopener noreferrer">Cerca «${escapeHtml(q)}» su MDN ↗</a></div>`;
+    <a class="brief-azione mdn" href="https://developer.mozilla.org/en-US/search?q=${encodeURIComponent(q)}" target="_blank" rel="noopener noreferrer">Cerca «${escapeHtml(q)}» su MDN ↗</a>
+    <p class="nessuno-segnala">Vuoi che la aggiunga? <a class="mdn" href="${urlSegnalazione(q)}" target="_blank" rel="noopener noreferrer">Segnala la voce mancante su GitHub ↗</a><br><small>Serve un account GitHub gratuito.</small></p></div>`;
 }
+
 let mostraTutte = false;
 function inHome() { return !document.getElementById("search").value.trim() && !categoriaAttiva && !modalitaPreferiti && !mostraTutte; }
 function homeHtml() {

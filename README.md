@@ -27,7 +27,10 @@ Per installarla:
 - **Android (Chrome)**: menu > Installa app.
 - **Computer (Chrome/Edge)**: icona di installazione nella barra dell'indirizzo.
 
-Dopo il primo caricamento funziona anche senza rete. Se modifichi i file, cambia il numero di versione in `sw.js` (`syntaxica-v8` > `syntaxica-v9`) per forzare l'aggiornamento.
+Dopo il primo caricamento funziona anche senza rete. Se modifichi i file, cambia il numero di versione in `sw.js` (`syntaxica-v1.0` > `syntaxica-v.1.1`) per forzare l'aggiornamento.
+
+## Segnalazioni
+Se cerchi una voce che non c'è, l'app propone di segnalarla: il pulsante apre una nuova issue su GitHub, già compilata con il termine cercato (serve un account GitHub gratuito). Le issue sono nella scheda Issues del repository.
 
 ## Aggiungere una voce
 Aggiungi una riga nell'array del file giusto, per esempio in `data/js.js`:
