@@ -352,6 +352,7 @@ document.getElementById("pref-btn").addEventListener("click", () => {
   document.getElementById("pref-btn").classList.toggle("attivo", modalitaPreferiti);
   document.getElementById("hint").hidden = modalitaPreferiti;
   mostraRisultati(elencoFiltrato());
+  window.scrollTo(0, 0);
 });
 
 // ---------------- Zoom dei campi di testo (allarga la textarea con transizione) ----------------
@@ -735,6 +736,7 @@ document.getElementById("results").addEventListener("click", (e) => {
 });
 ["brief-btn", "prog-btn"].forEach((id) => document.getElementById(id).addEventListener("click", () => {
   if (modalitaPreferiti) { modalitaPreferiti = false; document.getElementById("pref-btn").classList.remove("attivo"); }
+  window.scrollTo(0, 0);
 }));
 const ultimoStato = { y: 0 };
 window.addEventListener("scroll", () => {
