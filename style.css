@@ -399,3 +399,10 @@
 html { background: var(--bg); }
 :root { padding-top: 0; color-scheme: dark; }
 header { top: 0; padding-top: calc(1.1rem + env(safe-area-inset-top, 0px)); }
+.valori { margin: 0.7rem 0 0; display: grid; gap: 0.4rem; }
+.valori div { display: flex; gap: 0.6rem; align-items: baseline; }
+.valori dt { flex: none; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 0.8rem; color: var(--accent); background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 0.1rem 0.45rem; }
+.valori dd { margin: 0; color: var(--muted); font-size: 0.85rem; line-height: 1.4; }
+.valori .evid dt { border-color: var(--accent); }
+.valori .evid dd { color: var(--text); }
+pre.prog-code { font-size: 13px; margin: 0 0 0.4rem; }

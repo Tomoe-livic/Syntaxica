@@ -1,5 +1,10 @@
 // Syntaxica — logica dell'app. I dati stanno in data/*.js.
-const dati = [...DATI_HTML, ...DATI_CSS, ...DATI_JS];
+const dati = [...DATI_HTML, ...DATI_CSS, ...DATI_JS, ...AGGIUNTE.nuove];
+const ha = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+dati.forEach((v) => {
+  if (ha(AGGIUNTE.ritocchi, v.nome)) Object.assign(v, AGGIUNTE.ritocchi[v.nome]);
+  if (ha(AGGIUNTE.valori, v.nome)) v.valori = AGGIUNTE.valori[v.nome];
+});
 
 function normalizza(s) {
   return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -12,7 +17,8 @@ function cerca(query, lista) {
     const inNome = normalizza(voce.nome).includes(q);
     const inDescrizione = normalizza(voce.descrizione).includes(q);
     const inSinonimi = voce.sinonimi.some((s) => normalizza(s).includes(q));
-    return inNome || inDescrizione || inSinonimi;
+    const inValori = (voce.valori || []).some(([n, d]) => normalizza(n).includes(q) || normalizza(d).includes(q));
+    return inNome || inDescrizione || inSinonimi || inValori;
   });
 }
 
@@ -105,6 +111,13 @@ function escapeHtml(str) {
   }[c]));
 }
 
+function valoriHtml(voce) {
+  if (!voce.valori || !voce.valori.length) return "";
+  const q = normalizza(document.getElementById("search").value.trim());
+  const riga = ([n, d]) => `<div${q.length > 1 && normalizza(n).includes(q) ? ' class="evid"' : ""}><dt>${escapeHtml(n)}</dt><dd>${escapeHtml(d)}</dd></div>`;
+  return `<dl class="valori">${voce.valori.map(riga).join("")}</dl>`;
+}
+
 function cardHtml(voce, { principale = false, compatta = false } = {}) {
   const mostraDemo = !compatta && voce.demo;
   const etichettaBtn = voce.demo === "console" ? "▶ Esegui" : "👁 Anteprima";
@@ -115,6 +128,7 @@ function cardHtml(voce, { principale = false, compatta = false } = {}) {
         <span class="card-dx"><span class="badge">${escapeHtml(voce.categoria)}</span><button class="star${preferito(voce.nome) ? " on" : ""}" type="button" data-nome="${escapeHtml(voce.nome)}" aria-pressed="${preferito(voce.nome)}" aria-label="Preferito: ${escapeHtml(voce.nome)}">${preferito(voce.nome) ? "★" : "☆"}</button></span>
       </div>
       <p class="descrizione">${escapeHtml(voce.descrizione)}</p>
+      ${compatta ? "" : valoriHtml(voce)}
       ${!compatta && voce.snippet ? `<pre><code>${escapeHtml(voce.snippet)}</code></pre>` : ""}
       ${mostraDemo ? `<button class="demo-btn" type="button">${etichettaBtn}</button><div class="demo-panel"></div>` : ""}
       ${compatta ? "" : usataInHtml(voce)}
@@ -544,7 +558,7 @@ function copiaEsempio() {
   renderProgetti();
 }
 function renderEsempio(e, msg) {
-  const cod = (et, v, id) => v ? zoomRiga(et, id, true) + `<div class="codice-wrap"><textarea class="brief-input prog-code ${zClass(id)}" id="${id}" rows="6" readonly spellcheck="false" wrap="off">${escapeHtml(v)}</textarea></div>` : "";
+  const cod = (et, v, id) => v ? zoomRiga(et, id, true) + `<div class="codice-wrap"><pre class="brief-input prog-code ${zClass(id)}" id="${id}" tabindex="0">${escapeHtml(v)}</pre></div>` : "";
   progView.innerHTML = `
     <div class="brief-top"><button class="brief-azione" data-az="indietro-esempi">← Esempi</button><button class="brief-azione" data-az="copia-esempio">Copia nei miei progetti</button></div>${msg}
     <h2>${escapeHtml(e.titolo)}</h2>
