@@ -10,16 +10,42 @@ function normalizza(s) {
   return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
+function tagDaQuery(q) {
+  const m = q.match(/^<\/?\s*([a-z][a-z0-9-]*)/);
+  return m ? m[1] : "";
+}
+
 function cerca(query, lista) {
-  const q = normalizza(query.trim());
+  const raw = normalizza(query.trim());
+  const tag = tagDaQuery(raw);
+  if (tag) {
+    const haTag = (t) => {
+      const n = normalizza(t);
+      if (n.split(/[^a-z0-9]+/).includes(tag)) return true;
+      const r = n.match(/\b([a-z]+)(\d)-\1(\d)\b/), m = tag.match(/^([a-z]+)(\d)$/);
+      return !!(r && m && m[1] === r[1] && +m[2] >= +r[2] && +m[2] <= +r[3]);
+    };
+    const html = lista.filter((v) => v.categoria === "HTML");
+    const perNome = html.filter((v) => haTag(v.nome));
+    return perNome.length ? perNome : html.filter((v) => v.sinonimi.some(haTag));
+  }
+  const q = raw;
   if (!q) return lista;
-  return lista.filter((voce) => {
-    const inNome = normalizza(voce.nome).includes(q);
-    const inDescrizione = normalizza(voce.descrizione).includes(q);
-    const inSinonimi = voce.sinonimi.some((s) => normalizza(s).includes(q));
-    const inValori = (voce.valori || []).some(([n, d]) => normalizza(n).includes(q) || normalizza(d).includes(q));
-    return inNome || inDescrizione || inSinonimi || inValori;
-  });
+  const punteggio = (voce) => {
+    const nome = normalizza(voce.nome);
+    if (nome === q) return 0;
+    if (nome.split(/[^a-z0-9]+/).includes(q)) return 1;
+    return nome.includes(q) ? 2 : 3;
+  };
+  return lista
+    .filter((voce) => {
+      const inNome = normalizza(voce.nome).includes(q);
+      const inDescrizione = normalizza(voce.descrizione).includes(q);
+      const inSinonimi = voce.sinonimi.some((s) => normalizza(s).includes(q));
+      const inValori = (voce.valori || []).some(([n, d]) => normalizza(n).includes(q) || normalizza(d).includes(q));
+      return inNome || inDescrizione || inSinonimi || inValori;
+    })
+    .sort((a, b) => punteggio(a) - punteggio(b));
 }
 
 let categoriaAttiva = null;
@@ -113,7 +139,8 @@ function escapeHtml(str) {
 
 function valoriHtml(voce) {
   if (!voce.valori || !voce.valori.length) return "";
-  const q = normalizza(document.getElementById("search").value.trim());
+  const raw = normalizza(document.getElementById("search").value.trim());
+  const q = tagDaQuery(raw) || raw;
   const riga = ([n, d]) => `<div${q.length > 1 && normalizza(n).includes(q) ? ' class="evid"' : ""}><dt>${escapeHtml(n)}</dt><dd>${escapeHtml(d)}</dd></div>`;
   return `<dl class="valori">${voce.valori.map(riga).join("")}</dl>`;
 }
@@ -125,7 +152,7 @@ function cardHtml(voce, { principale = false, compatta = false } = {}) {
     <div class="card${principale ? " focus-principale" : ""}" data-nome="${escapeHtml(voce.nome)}">
       <div class="card-top">
         <span class="nome">${escapeHtml(voce.nome)}</span>
-        <span class="card-dx"><span class="badge">${escapeHtml(voce.categoria)}</span><button class="star${preferito(voce.nome) ? " on" : ""}" type="button" data-nome="${escapeHtml(voce.nome)}" aria-pressed="${preferito(voce.nome)}" aria-label="Preferito: ${escapeHtml(voce.nome)}">${preferito(voce.nome) ? "★" : "☆"}</button></span>
+        <span class="card-dx"><span class="badge b-${escapeHtml(voce.categoria.toLowerCase())}">${escapeHtml(voce.categoria)}</span><button class="star${preferito(voce.nome) ? " on" : ""}" type="button" data-nome="${escapeHtml(voce.nome)}" aria-pressed="${preferito(voce.nome)}" aria-label="Preferito: ${escapeHtml(voce.nome)}">${preferito(voce.nome) ? "★" : "☆"}</button></span>
       </div>
       <p class="descrizione">${escapeHtml(voce.descrizione)}</p>
       ${compatta ? "" : valoriHtml(voce)}
@@ -527,13 +554,24 @@ function chiudiViste() {
   if (progettiAperto) vistaProgetti(false);
 }
 
-// ---------------- Backup: esporta / importa i dati ----------------
+// ---------------- Backup: esporta / importa i dati (menu in alto a destra) ----------------
 const PREFISSI_DATI = ["sintassiwada_", "syntaxica_"];
 const chiaveDati = (c) => PREFISSI_DATI.some((p) => c.startsWith(p));
-const BACKUP_HTML = `<div class="backup-box"><span class="brief-label">Copia di sicurezza</span>
-  <p class="hint">Salva in un file preferiti, cronologia, Brief e progetti di questo dispositivo, oppure ripristinali da un file.</p>
-  <div class="brief-riga"><button class="brief-azione" type="button" data-az="esporta">Esporta i dati</button>
-  <label class="brief-azione prog-file">Importa un backup<input type="file" id="b-importa" accept=".json,application/json" hidden></label></div></div>`;
+
+function messaggioDati(testo, errore) {
+  const m = document.getElementById("dati-msg");
+  if (!m) return;
+  m.textContent = testo || "";
+  m.hidden = !testo;
+  m.classList.toggle("errore", !!errore);
+}
+function menuDati(apri) {
+  const menu = document.getElementById("dati-menu"), btn = document.getElementById("dati-btn");
+  if (!menu || !btn) return;
+  menu.hidden = !apri;
+  btn.setAttribute("aria-expanded", apri ? "true" : "false");
+  if (!apri) messaggioDati("");
+}
 
 async function esportaDati() {
   const copia = {};
@@ -542,11 +580,12 @@ async function esportaDati() {
       const c = localStorage.key(i);
       if (chiaveDati(c)) copia[c] = localStorage.getItem(c);
     }
-  } catch (e) { msgProg = "Impossibile leggere i dati salvati."; renderProgetti(); return; }
+  } catch (e) { messaggioDati("Impossibile leggere i dati salvati.", true); return; }
   const nomeFile = "syntaxica-backup-" + new Date().toISOString().slice(0, 10) + ".json";
   const file = new File([JSON.stringify({ app: "syntaxica", versione: 1, dati: copia }, null, 2)], nomeFile, { type: "application/json" });
   if (matchMedia("(pointer: coarse)").matches && navigator.canShare && navigator.canShare({ files: [file] })) {
     try { await navigator.share({ files: [file], title: nomeFile }); } catch (e) {}
+    menuDati(false);
     return;
   }
   const url = URL.createObjectURL(file);
@@ -554,6 +593,7 @@ async function esportaDati() {
   a.href = url; a.download = nomeFile;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+  menuDati(false);
 }
 
 async function importaDati(file) {
@@ -567,10 +607,31 @@ async function importaDati(file) {
     chiavi.forEach((c) => localStorage.setItem(c, letto.dati[c]));
     location.reload();
   } catch (e) {
-    msgProg = "Importazione non riuscita: il file non sembra un backup di Syntaxica (o lo spazio è pieno).";
-    renderProgetti();
+    messaggioDati("Importazione non riuscita: il file non sembra un backup di Syntaxica (o lo spazio è pieno).", true);
   }
 }
+
+(function creaMenuDati() {
+  const riga = document.querySelector(".titolo-riga");
+  if (!riga) return;
+  const wrap = document.createElement("div");
+  wrap.className = "dati-wrap";
+  wrap.innerHTML = `<button type="button" class="dati-btn" id="dati-btn" aria-label="Copia di sicurezza dei dati" aria-haspopup="true" aria-expanded="false" aria-controls="dati-menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v10M8 10l4 4 4-4M5 19h14"/></svg></button>
+    <div class="dati-menu" id="dati-menu" hidden>
+      <b class="dati-titolo">Copia di sicurezza</b>
+      <p>Salva in un file preferiti, cronologia, Brief e progetti di questo dispositivo, oppure ripristinali da un file.</p>
+      <button class="brief-azione" type="button" id="dati-esporta">Esporta i dati</button>
+      <label class="brief-azione prog-file">Importa un backup<input type="file" id="dati-importa" accept=".json,application/json" hidden></label>
+      <p class="dati-msg" id="dati-msg" role="status" hidden></p>
+    </div>`;
+  riga.appendChild(wrap);
+  document.getElementById("dati-btn").addEventListener("click", () => menuDati(document.getElementById("dati-menu").hidden));
+  document.getElementById("dati-esporta").addEventListener("click", esportaDati);
+  document.getElementById("dati-importa").addEventListener("change", (e) => { importaDati(e.target.files[0]); e.target.value = ""; });
+  document.addEventListener("click", (e) => { if (!wrap.contains(e.target)) menuDati(false); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !document.getElementById("dati-menu").hidden) { menuDati(false); document.getElementById("dati-btn").focus(); } });
+  window.addEventListener("scroll", () => menuDati(false), { passive: true });
+})();
 
 function vistaProgetti(on) {
   if (on && briefAperto) vistaBrief(false);
@@ -641,7 +702,7 @@ function renderProgetti() {
             const info = [x.html || x.css || x.js ? "Codice" : "", x.link ? "Link" : "", x.voci.length ? x.voci.length + " voci" : ""].filter(Boolean).join(" · ");
             return `<div class="brief-card" data-az="apri" data-id="${x.id}"><b>${escapeHtml(x.titolo || "Senza titolo")}</b><span>${info || "Vuoto"}</span></div>`;
           }).join("")
-        : `<p class="hint">Qui archivi i progetti d'esempio: aggiungi un link, incolla il codice o carica i file, collega le voci che hai usato e guarda l'anteprima.</p>`) + BACKUP_HTML;
+        : `<p class="hint">Qui archivi i progetti d'esempio: aggiungi un link, incolla il codice o carica i file, collega le voci che hai usato e guarda l'anteprima.</p>`);
     return;
   }
   const haCodice = p.html || p.css || p.js;
@@ -690,7 +751,6 @@ progView.addEventListener("click", (e) => {
   else if (az === "indietro-esempi") { esempioAttivo = null; anteprimaAperta = false; renderProgetti(); return; }
   else if (az === "copia-esempio") { copiaEsempio(); return; }
   else if (az === "anteprima" && esempioCorrente()) { anteprimaAperta = !anteprimaAperta; renderProgetti(); return; }
-  else if (az === "esporta") { esportaDati(); return; }
   else if (!p) return;
   else if (az === "anteprima") {
     if (!(p.html || p.css || p.js)) { msgProg = "Aggiungi prima del codice (incollato o da file) per vedere l'anteprima."; renderProgetti(); return; }
@@ -717,11 +777,6 @@ progView.addEventListener("input", (e) => {
   }
 });
 progView.addEventListener("change", async (e) => {
-    if (e.target.id === "b-importa") {
-      importaDati(e.target.files[0]);
-      e.target.value = "";
-      return;
-    }
   const p = progCorrente();
   if (!p) return;
   if (e.target.id === "p-link") { renderProgetti(); return; }
