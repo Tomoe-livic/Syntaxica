@@ -153,6 +153,8 @@ function nessunRisultato() {
 }
 
 let mostraTutte = false;
+const PAGINA = 50;
+let limiteRisultati = PAGINA, mantieniLimite = false;
 function inHome() { return !document.getElementById("search").value.trim() && !categoriaAttiva && !modalitaPreferiti && !mostraTutte; }
 function homeHtml() {
   const n = (c) => dati.filter((v) => v.categoria === c).length;
@@ -165,6 +167,8 @@ function homeHtml() {
     `<p class="nota-scopo">Syntaxica è una guida scelta per chi impara, non un'enciclopedia: copre il programma del corso e gli approfondimenti più comuni. Per tutto il resto c'è <a href="https://developer.mozilla.org/" target="_blank" rel="noopener noreferrer">MDN Web Docs ↗</a>.</p>`;
 }
 function mostraRisultati(risultati) {
+  if (!mantieniLimite) limiteRisultati = PAGINA;
+  mantieniLimite = false;
   const container = document.getElementById("results");
   const count = document.getElementById("count");
   if (inHome()) { count.textContent = ""; container.innerHTML = homeHtml(); return; }
@@ -179,8 +183,10 @@ function mostraRisultati(risultati) {
     return;
   }
 
-  container.innerHTML = risultati.map((voce) => cardHtml(voce)).join("");
-}
+  const visibili = risultati.slice(0, limiteRisultati);
+  const restanti = risultati.length - visibili.length;
+  container.innerHTML = visibili.map((voce) => cardHtml(voce)).join("") +
+    (restanti > 0 ? `<button class="brief-azione home-tutte" type="button" data-altre="1">Mostra altre ${Math.min(PAGINA, restanti)} (ne mancano ${restanti})</button>` : "");}
 
 function mostraCombinazione(nomeVoce) {
   const voce = trovaPerNome(nomeVoce);
@@ -807,8 +813,8 @@ document.getElementById("results").addEventListener("click", (e) => {
   if (cat) { document.querySelector(`.cat-btn[data-cat="${cat.dataset.homeCat}"]`).click(); return; }
   const voce = e.target.closest("[data-home-voce]");
   if (voce) { modalitaCronologia = false; mostraCombinazione(voce.dataset.homeVoce); return; }
-  if (e.target.closest("[data-home-tutte]")) { mostraTutte = true; mostraRisultati(elencoFiltrato()); }
-});
+  if (e.target.closest("[data-home-tutte]")) { mostraTutte = true; mostraRisultati(elencoFiltrato()); return; }
+  if (e.target.closest("[data-altre]")) { limiteRisultati += PAGINA; mantieniLimite = true; mostraRisultati(elencoFiltrato()); }});
 ["brief-btn", "prog-btn"].forEach((id) => document.getElementById(id).addEventListener("click", () => {
   if (modalitaPreferiti) { modalitaPreferiti = false; document.getElementById("pref-btn").classList.remove("attivo"); }
   window.scrollTo(0, 0);
@@ -827,6 +833,17 @@ function aggiornaHint() {
   document.getElementById("hint").classList.toggle("nascosto", !!nascondi);
 }
 new MutationObserver(aggiornaHint).observe(document.getElementById("results"), { childList: true });
+// ---------------- Pulsante "torna all'inizio" ----------------
+const suBtn = document.createElement("button");
+suBtn.type = "button";
+suBtn.className = "su-btn";
+suBtn.setAttribute("aria-label", "Torna all'inizio");
+suBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>`;
+document.body.appendChild(suBtn);
+suBtn.addEventListener("click", () => {
+  window.scrollTo({ top: 0, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+});
+window.addEventListener("scroll", () => suBtn.classList.toggle("visibile", window.scrollY > 600), { passive: true });
 
 renderCronologia();
 mostraRisultati(elencoFiltrato());
