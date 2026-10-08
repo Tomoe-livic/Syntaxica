@@ -1,6 +1,6 @@
 // Service worker di Syntaxica: salva i file nel dispositivo così l'app funziona anche offline.
 // Quando modifichi i file, cambia il numero di versione qui sotto per forzare l'aggiornamento.
-const CACHE = "syntaxica-v1.1";
+const CACHE = "syntaxica-v1.2";
 const FILE = ["./", "index.html", "style.css", "app.js", "data/html.js", "data/css.js", "data/js.js", "data/esempi.js", "data/aggiunte.js",
   "manifest.webmanifest", "icons/icon.svg", "icons/icon-192.png", "icons/icon-512.png",
   "icons/icon-maskable-512.png", "icons/apple-touch-icon.png"];

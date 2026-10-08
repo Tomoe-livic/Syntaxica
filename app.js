@@ -520,6 +520,52 @@ function chiudiViste() {
   if (briefAperto) vistaBrief(false);
   if (progettiAperto) vistaProgetti(false);
 }
+
+// ---------------- Backup: esporta / importa i dati ----------------
+const PREFISSI_DATI = ["sintassiwada_", "syntaxica_"];
+const chiaveDati = (c) => PREFISSI_DATI.some((p) => c.startsWith(p));
+const BACKUP_HTML = `<div class="backup-box"><span class="brief-label">Copia di sicurezza</span>
+  <p class="hint">Salva in un file preferiti, cronologia, Brief e progetti di questo dispositivo, oppure ripristinali da un file.</p>
+  <div class="brief-riga"><button class="brief-azione" type="button" data-az="esporta">Esporta i dati</button>
+  <label class="brief-azione prog-file">Importa un backup<input type="file" id="b-importa" accept=".json,application/json" hidden></label></div></div>`;
+
+async function esportaDati() {
+  const copia = {};
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const c = localStorage.key(i);
+      if (chiaveDati(c)) copia[c] = localStorage.getItem(c);
+    }
+  } catch (e) { msgProg = "Impossibile leggere i dati salvati."; renderProgetti(); return; }
+  const nomeFile = "syntaxica-backup-" + new Date().toISOString().slice(0, 10) + ".json";
+  const file = new File([JSON.stringify({ app: "syntaxica", versione: 1, dati: copia }, null, 2)], nomeFile, { type: "application/json" });
+  if (matchMedia("(pointer: coarse)").matches && navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: nomeFile }); } catch (e) {}
+    return;
+  }
+  const url = URL.createObjectURL(file);
+  const a = document.createElement("a");
+  a.href = url; a.download = nomeFile;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function importaDati(file) {
+  if (!file) return;
+  try {
+    const letto = JSON.parse(await file.text());
+    if (letto.app !== "syntaxica" || !letto.dati || typeof letto.dati !== "object") throw new Error();
+    const chiavi = Object.keys(letto.dati).filter((c) => chiaveDati(c) && typeof letto.dati[c] === "string");
+    if (!chiavi.length) throw new Error();
+    if (!confirm("Importare " + chiavi.length + " elementi? Quelli con lo stesso nome verranno sostituiti.")) return;
+    chiavi.forEach((c) => localStorage.setItem(c, letto.dati[c]));
+    location.reload();
+  } catch (e) {
+    msgProg = "Importazione non riuscita: il file non sembra un backup di Syntaxica (o lo spazio è pieno).";
+    renderProgetti();
+  }
+}
+
 function vistaProgetti(on) {
   if (on && briefAperto) vistaBrief(false);
   progettiAperto = on;
@@ -589,7 +635,7 @@ function renderProgetti() {
             const info = [x.html || x.css || x.js ? "Codice" : "", x.link ? "Link" : "", x.voci.length ? x.voci.length + " voci" : ""].filter(Boolean).join(" · ");
             return `<div class="brief-card" data-az="apri" data-id="${x.id}"><b>${escapeHtml(x.titolo || "Senza titolo")}</b><span>${info || "Vuoto"}</span></div>`;
           }).join("")
-        : `<p class="hint">Qui archivi i progetti d'esempio: aggiungi un link, incolla il codice o carica i file, collega le voci che hai usato e guarda l'anteprima.</p>`);
+        : `<p class="hint">Qui archivi i progetti d'esempio: aggiungi un link, incolla il codice o carica i file, collega le voci che hai usato e guarda l'anteprima.</p>`) + BACKUP_HTML;
     return;
   }
   const haCodice = p.html || p.css || p.js;
@@ -638,6 +684,7 @@ progView.addEventListener("click", (e) => {
   else if (az === "indietro-esempi") { esempioAttivo = null; anteprimaAperta = false; renderProgetti(); return; }
   else if (az === "copia-esempio") { copiaEsempio(); return; }
   else if (az === "anteprima" && esempioCorrente()) { anteprimaAperta = !anteprimaAperta; renderProgetti(); return; }
+  else if (az === "esporta") { esportaDati(); return; }
   else if (!p) return;
   else if (az === "anteprima") {
     if (!(p.html || p.css || p.js)) { msgProg = "Aggiungi prima del codice (incollato o da file) per vedere l'anteprima."; renderProgetti(); return; }
@@ -664,6 +711,11 @@ progView.addEventListener("input", (e) => {
   }
 });
 progView.addEventListener("change", async (e) => {
+    if (e.target.id === "b-importa") {
+      importaDati(e.target.files[0]);
+      e.target.value = "";
+      return;
+    }
   const p = progCorrente();
   if (!p) return;
   if (e.target.id === "p-link") { renderProgetti(); return; }
